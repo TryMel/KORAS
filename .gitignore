@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.env
+.venv/
+env/
+venv/
+*.db
+.pytest_cache/
+
+# Flutter / Dart
+mobile/flutter/.dart_tool/
+mobile/flutter/.flutter-plugins
+mobile/flutter/.flutter-plugins-dependencies
+mobile/flutter/.packages
+mobile/flutter/build/
+mobile/flutter/.pub-cache/
+mobile/flutter/.pub/
+
+# Android
+mobile/flutter/android/.gradle/
+mobile/flutter/android/local.properties
+mobile/flutter/android/**/build/
+
+# Node.js
+admin/node_modules/
+admin/.next/
+admin/out/
+admin/build/
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+*.DS_Store
+Thumbs.db

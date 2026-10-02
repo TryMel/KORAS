@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">KORAS</string>
+    <string name="accessibility_service_description">Service d\'assistance agentique KORAS permettant l\'automatisation vocale accessible, la lecture d\'écran et l\'aide aux personnes malvoyantes ou en situation de handicap.</string>
+</resources>

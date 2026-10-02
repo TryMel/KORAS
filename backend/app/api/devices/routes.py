@@ -1,0 +1,84 @@
+from fastapi import APIRouter, Depends, HTTPException
+from typing import List, Optional
+from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+from app.database.session import get_db
+from app.database.models.models import Device, User, AuditLog
+from app.core.dependencies import get_current_user
+
+router = APIRouter(prefix="/devices", tags=["Devices"])
+
+class DeviceRegistrationRequest(BaseModel):
+    device_identifier: str
+    platform: str = "android"
+    android_version: Optional[str] = "14"
+    app_version: str = "1.0.0"
+
+class DeviceResponse(BaseModel):
+    id: str
+    device_identifier: str
+    platform: str
+    android_version: Optional[str]
+    app_version: str
+    trust_status: str
+
+@router.post("/register", response_model=DeviceResponse)
+async def register_device(
+    req: DeviceRegistrationRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    res = await db.execute(select(Device).where(Device.device_identifier == req.device_identifier))
+    existing = res.scalars().first()
+    if existing:
+        existing.last_seen_at = Device.last_seen_at.default.arg()
+        existing.trust_status = "trusted"
+        await db.commit()
+        await db.refresh(existing)
+        return existing
+
+    device = Device(
+        user_id=current_user.id,
+        device_identifier=req.device_identifier,
+        platform=req.platform,
+        android_version=req.android_version,
+        app_version=req.app_version,
+        trust_status="trusted"
+    )
+    db.add(device)
+    await db.commit()
+    await db.refresh(device)
+    return device
+
+@router.get("", response_model=List[DeviceResponse])
+async def list_user_devices(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    res = await db.execute(select(Device).where(Device.user_id == current_user.id))
+    return res.scalars().all()
+
+@router.post("/{device_id}/revoke")
+async def revoke_device(
+    device_id: str,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    res = await db.execute(select(Device).where(Device.id == device_id, Device.user_id == current_user.id))
+    device = res.scalars().first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Appareil non trouvé.")
+
+    device.trust_status = "revoked"
+    audit = AuditLog(
+        user_id=current_user.id,
+        device_id=device_id,
+        event_type="DEVICE_REVOKED",
+        resource_type="device",
+        resource_id=device_id
+    )
+    db.add(audit)
+    await db.commit()
+    return {"message": "Appareil révoqué avec succès. Toutes les actions sensibles sont désormais bloquées."}

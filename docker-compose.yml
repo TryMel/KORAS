@@ -1,0 +1,71 @@
+services:
+  # Base de données PostgreSQL (Section 10.2 & 26)
+  postgres:
+    image: postgres:16-alpine
+    container_name: koras-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: koras
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: koras_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # Cache & État temporaire Redis (Section 10.2)
+  redis:
+    image: redis:7-alpine
+    container_name: koras-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+
+  # Backend FastAPI Core (Section 10.2 & 13)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: koras-backend
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      ENVIRONMENT: development
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      DATABASE_URL: "postgresql+asyncpg://koras:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/koras_db"
+      REDIS_URL: redis://redis:6379/0
+      MCP_ENABLED: "true"
+      MCP_SERVER_HOST: mcp
+      MCP_SERVER_PORT: 8765
+    depends_on:
+      - postgres
+      - redis
+
+  # Serveur MCP (Section 10.4)
+  mcp:
+    build:
+      context: .
+      dockerfile: mcp/Dockerfile
+    container_name: koras-mcp
+    restart: always
+    ports:
+      - "8765:8765"
+
+  # Portail d'Administration Next.js (Section 42 & 43)
+  admin:
+    build:
+      context: ./admin
+      dockerfile: Dockerfile
+    container_name: koras-admin
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  redisdata:
